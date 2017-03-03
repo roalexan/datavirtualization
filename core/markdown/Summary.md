@@ -1,26 +1,26 @@
 ## Summary
 
-Demonstrates data virtualization techniques on the Azure stack. The first technique shows how to scale a query from SQL Server 2016 to an HDInsight cluster using PolyBase. The second technique shows how to run a query from an Azure HDInsight cluster against an Azure SQL DataWarehouse using JDBC.
+Demonstrates data virtualization techniques on the Azure stack. The first technique shown scales out a SQL query execution from SQL Server 2016 to an HDInsight cluster using PolyBase. The second technique shows using JDBC how to query data from an Azure HDInsight cluster and an Azure SQL DataWarehouse and merge the results together on the Azure HDInsight cluster.
 
 ## Description
 
 Data Virtualization, What Is It Good For? Absolutely everything! Well, no, but there are some very real benefits from using data virtualization. Here are a few:
 - Offload large computation to more powerful processing systems and seamlessly merge the results.
-- Combine cloud scale compute with on-premises environments.
 - Access large collections of disparate data sources across system boundaries (example: separate systems for marketing and sales data).
 - Enable queries against large datasets without the need to move then to a single system (potentially with limited storage).
 - Reduce heavy network I/O by moving the compute to the data.
 - Simplify access to all sorts of data using a single query language (example: SQL).
 - Avoid the need to replicate business logic across multiple systems.
+- Combine cloud scale compute with on-premises environments.
 
 So, how does one design systems that enable data virtualization? To answer this question, we will explore two data virtualization techniques: query scale-out and hybrid execution.
 
 #### Query Scale-Out
-Say you have a multi tenant SQL Server running on a hardware constrained environment. How can you offload some of the work to speed up the queries? How can you access vast amount of data that won't fit in the SQL Server? PolyBase to the rescue!
+Say you have a multi-tenant SQL Server running on a hardware constrained environment. How can you offload some of the work to speed up the queries? How can you access vast amount of data that won't fit in the SQL Server? PolyBase to the rescue!
 
-[![Polybase](https://msdn.microsoft.com/en-us/library/mt143171.aspx) is a technology that accesses and combines both non-relational and relational data, all from within SQL Server. It allows you to run queries on external data in Hadoop or Azure blob storage. The queries are optimized to push computation to Hadoop.
+[Polybase](https://msdn.microsoft.com/en-us/library/mt143171.aspx) is a technology that accesses and combines both non-relational and relational data, all from within SQL Server. It allows you to run queries on external data in Hadoop or Azure blob storage. The queries are optimized to push computation to Hadoop.
 
-We will deploy a solution where a SQL query lands on SQL Server 2016 where part of the SQL is sent to a Hadoop cluster for scalable execution using PolyBase. For the relational database we will be deploying SQL Server 2016 on IAAS (on a VM), where we will also install PolyBase and the AdventureWorks sample OLTP database. For the Hadoop cluster we will be deploying an HDInsight Spark cluster.
+We will build and deploy a solution where a SQL query lands on SQL Server 2016 where part of the SQL query is sent to a Hadoop cluster for scalable execution using PolyBase. For the relational database we will deploy SQL Server 2016 on VM (as an IaaS Service), where we will also install PolyBase and the AdventureWorks sample OLTP database. For the Hadoop cluster we will deploy an HDInsight Spark cluster.
 
 The architecture for this use case can be illustrated as:
 
