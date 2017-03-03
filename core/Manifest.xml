@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Template>
-    <Category>DesignPattern</Category>
     <Title>Data Virtualization</Title>
     <Owner displayname="Robert Alexander" email="roalexan@microsoft.com"/>
     <PublishedOn>02/28/2017</PublishedOn>
     <ImageUrl>{PatternAssetBaseUrl}/data-virtualization.png</ImageUrl>
-    <Description>Demonstrates data virtualization techniques on the Azure stack. The first technique shows how to scale a query from an on-premises SQL Server 2016 to an HDInsight cluster using PolyBase. The second technique shows how to run a query from an Azure HDInsight cluster against an Azure SQL DataWarehouse using JDBC.</Description>
+    <Description>Demonstrates data virtualization techniques on the Azure stack. The first technique shows how to scale a query from SQL Server 2016 to an HDInsight cluster using PolyBase. The second technique shows how to run a query from an Azure HDInsight cluster against an Azure SQL DataWarehouse using JDBC.</Description>
     <Summary src="markdown\Summary.md" format="markdown"/>
     <EstimatedTime>30 Minutes</EstimatedTime>
     <ProvisioningSteps>        
         <ArmDeployment source="arm\azuredeploy.json" title="Automated resource deployment"/>
         <Manual title="Resource provisioning (manual)">
+			<Credential type="hdi,linuxvm,sql" username="admin-username" password="admin-password" />
             <Instructions src="markdown\ManualDeployment.md" format="markdown" />
         </Manual>
         <Manual title="Finished">
