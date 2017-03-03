@@ -8,11 +8,11 @@ Now that everything is deployed, you're ready explore two data virtualization te
 
 ## Query scale out
 
-Query scale out shows how to scale a query from a hardware constrained SQL Server 2016 to a Hadoop (HortonWorks) cluster using PolyBase. First, let's test a query running entirely in the local SQL Server.
+Query scale out shows how to scale a query from a hardware constrained SQL Server 2016 to a Hadoop (HortonWorks) cluster using PolyBase. First, let's test a query running entirely in the SQL Server.
 
-### Local execution
+### Run on local resources only
 
-So, first we're going to look at the case where everything runs in your local SQL Server. You will be running a query that joins table data entirely on the local SQL Server running on your virtual machine. Note that for the purposes of this tutorial the query runs by itself. You can imagine, however, that in an actual production environment there would be hardware constraints - memory, CPU, I/O - that would adversely affect  performance. It is also very possible that the sheer amount of data would not fit in your SQL Server.
+So, first we're going to look at the case where everything runs in your SQL Server. You will be running a query that joins table data entirely on the SQL Server running on your virtual machine. Note that for the purposes of this tutorial we allow the sample query to run on the SQL server without adding any extra load or other query executed in parallel. You can imagine, however, that in an actual production environment there would be hardware constraints - memory, CPU, I/O - that would adversely affect performance. It is also very possible that the sheer amount of data would not fit in your SQL Server.
 
 Using your existing client session to your virtual machine, do the following steps:
 
@@ -22,9 +22,9 @@ Using your existing client session to your virtual machine, do the following ste
 1. Click **Connect** using all default values
 1. Click anywhere on the SQL statement to get focus then click **Execute**. You can also click Function F5 if you want. Note the execution time. This will vary, but typically will exceed one minute. As of this writing, it took 1 minute and 16 seconds.
 
-### Remote execution
+### Run by scaling out to Hadoop (distributed environment)
 
-Now let's look at how you can speed things up by offloading some of the work to HDI. We're going to run the same query, but this time the where clause will be executed on HDI. The where clause is sent to HDI, where map reduce jobs are run to crunch the data and return only the results, where it is incorporated back into the local query execution. For the purposes of the demo HDI has been bootstrapped with the same table data, but in production you can imagine a scenario where the data exists independently (but you'll still need a way to join with the local data, such as by a column id). This approach can be used to significantly speed up your query execution times.
+Now let's look at how you can speed things up by offloading some of the work to HDI. We're going to run the same query, but this time the where clause will be executed on HDI. The where clause is sent to HDI, where map reduce jobs are run to crunch the data and return only the results, where it is incorporated back into the local query execution. Most production Analytics systems already have data archived in big data stores that can come handy in implementing this technique for scaling out SQL query execution without the need to move data. This approach can be used to significantly speed up your query execution times.
 
 Again using your client session to your virtual machine, do the following steps:
 
@@ -34,7 +34,7 @@ Again using your client session to your virtual machine, do the following steps:
 
 ## Hybrid execution
 
-Hybrid execution shows how to read and join table data stored your SQL Data Warehouse with table data stored in an Azure blob. We will be running Scala code in Jupyter Notebook running on your HDI cluster. You can imagine a scenario where you have lots of processed data residing in HDI, written out to Azure storage or Azure Data Lake, that needs to be joined with reference data stored in a SQL environment.
+Hybrid execution shows how to read and join table data stored your SQL Data Warehouse with table data stored in an Azure blob. We will be running Scala code in Jupyter Notebook running on your HDI cluster. As you can imagine, many production systems need reference data stored in SQL databases/datawarehouses (such as sales or location data) to transform (ETL) the data residing in big data stores like Azure storage, Azure Data Lake, etc. used by HDI.
 
 Using a browser of your choice, do the following steps:
 

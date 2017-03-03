@@ -8,9 +8,12 @@
     <Summary src="markdown\Summary.md" format="markdown"/>
     <EstimatedTime>30 Minutes</EstimatedTime>
     <ProvisioningSteps>        
-        <ArmDeployment source="arm\azuredeploy.json" title="Automated resource deployment"/>
+        <ArmDeployment source="arm\azuredeploy.json" title="Automated resource deployment">
+			<Parameters>
+				<Credential type="hdi,linuxvm,sql" username="admin-username" password="admin-password" />
+			</Parameters>
+		</ArmDeployment>
         <Manual title="Resource provisioning (manual)">
-			<Credential type="hdi,linuxvm,sql" username="admin-username" password="admin-password" />
             <Instructions src="markdown\ManualDeployment.md" format="markdown" />
         </Manual>
         <Manual title="Finished">

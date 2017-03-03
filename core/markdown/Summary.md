@@ -18,13 +18,13 @@ So, how does one design systems that enable data virtualization? To answer this 
 #### Query Scale-Out
 Say you have a multi tenant SQL Server running on a hardware constrained environment. How can you offload some of the work to speed up the queries? How can you access vast amount of data that won't fit in the SQL Server? PolyBase to the rescue!
 
-PolyBase (https://msdn.microsoft.com/en-us/library/mt143171.aspx) is a technology that accesses and combines both non-relational and relational data, all from within SQL Server. It allows you to run queries on external data in Hadoop or Azure blob storage. The queries are optimized to push computation to Hadoop.
+[![Polybase](https://msdn.microsoft.com/en-us/library/mt143171.aspx) is a technology that accesses and combines both non-relational and relational data, all from within SQL Server. It allows you to run queries on external data in Hadoop or Azure blob storage. The queries are optimized to push computation to Hadoop.
 
 We will deploy a solution where a SQL query lands on SQL Server 2016 where part of the SQL is sent to a Hadoop cluster for scalable execution using PolyBase. For the relational database we will be deploying SQL Server 2016 on IAAS (on a VM), where we will also install PolyBase and the AdventureWorks sample OLTP database. For the Hadoop cluster we will be deploying an HDInsight Spark cluster.
 
 The architecture for this use case can be illustrated as:
 
-<img src="{PatternAssetBaseUrl}/queryscaleoutazure.png" width="100%">
+[![Query Scale Out]({PatternAssetBaseUrl}/queryscaleoutazure.png)]({PatternAssetBaseUrl}/queryscaleoutazure.png)
 
 #### Hybrid Execution
 Say you have ETL processes that run over your unstructured data and store it in blob. How can you join this blob data with referential data stored in a relational database?
@@ -33,7 +33,7 @@ We will deploy a solution where you will see how to join your data in Azure blob
 
 The architecture for this use case can be illustrated as:
 
-<img src="{PatternAssetBaseUrl}/hybridexecutionazure.png" width="100%">
+[![Hybrid Execution]({PatternAssetBaseUrl}/hybridexecutionazure.png)]({PatternAssetBaseUrl}/hybridexecutionazure.png)
 
 ## Deployment
 Click **Deploy** to deploy this solution. The automatic deployment step takes about **25 minutes**. There is also a manual deploy step that takes about **10 minutes**. The following resources will be deployed to your Azure subscription automatically:
@@ -70,7 +70,7 @@ WHERE
   p.ProductID > 50
 ORDER BY
   p.ProductID;
-  ~~~~
+~~~~
 
 Next, you will run the same query but this time using an external table, BigProduct_HDFS, and the directive to force external pushdown. The external table contains the same data in an HDInsight cluster. This syntax tells PolyBase to run the where clause of your SQL statement on the remote HDI cluster and only return the results for local processing. This allows you to take advantage of the parallel computation capabilities of a large Hadoop cluster, potentially speeding up query execution.
 
@@ -93,16 +93,16 @@ For this data virtualization technique you will see how you can run a query from
 After everything is deployed, you will be provided a link that takes you directly to a Jupyter notebook, running on your HDI cluster, where you will run Scala code showing how to join the data on the two systems.
 
 You will first setup the Spark environment
-<img src="{PatternAssetBaseUrl}/setupspark.png" width="100%">
+[![Setup Spark]({PatternAssetBaseUrl}/setupspark.png)]({PatternAssetBaseUrl}/setupspark.png)
 
 Next create the JDBC connection to the table in Azure SQL Data Warehouse
-<img src="{PatternAssetBaseUrl}/definesqltable.png" width="100%">
+[![Define SQL Table]({PatternAssetBaseUrl}/definesqltable.png)]({PatternAssetBaseUrl}/definesqltable.png)
 
 Next create the connection to the table data in Azure store blob
-<img src="{PatternAssetBaseUrl}/defineblobtable.png" width="100%">
+[![Define Blob Table]({PatternAssetBaseUrl}/defineblobtable.png)]({PatternAssetBaseUrl}/defineblobtable.png)
 
 And finally join the table data
-<img src="{PatternAssetBaseUrl}/jointables.png" width="100%">
+[![Join Tables]({PatternAssetBaseUrl}/jointables.png)]({PatternAssetBaseUrl}/jointables.png)
 
 ## Cleanup
 When you are done with this solution, please remove it so you don't continue to incur charges. You can do this selecting your deployed solution and clicking **Clean up Deployments**.
