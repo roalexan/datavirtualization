@@ -1,0 +1,429 @@
+ {
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "admin-username": {
+            "type": "string",
+            "metadata": {
+                "description": "Admin user name (used for all services - e.g. HDInsight, the VM, and Azure SQL DW)"
+            }
+        },
+        "admin-password": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Admin password (used for all services - e.g. HDInsight, the VM, and Azure SQL DW)"
+            }
+        }
+    },
+    "variables": {
+        "unique": "[uniqueString(resourceGroup().id)]",
+        "location": "[resourceGroup().location]",
+        "sql-vm-size": "Standard_DS12_v2",
+        "headnode-vm-size": "Standard_D3_v2",
+        "workernode-vm-size": "Standard_D3_v2",
+        "storage-version": "2016-01-01",
+        "virtual-machine-version": "2016-04-30-preview",
+        "network-version": "2016-12-01",
+        "hdinsight-version": "2015-03-01-preview",
+        "prefix": "dv",
+        "polybase-storage-container": "[variables('hdinsight-name')]",
+        "hdinsight-name": "[concat(variables('prefix'), '-hdi-', variables('unique'))]",
+        "hdinsight-id": "[resourceId('Microsoft.HDInsight/clusters', variables('hdinsight-name'))]",
+        "hdinsight-os-profile": {
+            "linuxOperatingSystemProfile": { "username": "[parameters('admin-username')]", "password": "[parameters('admin-password')]" }
+        },
+        "hdinsight-vnet-profile": {
+            "id": "[variables('vnet-id')]",
+            "subnet": "[variables('vnet-subnet-1-id')]"
+        },
+        "hdinsight-headnode-count": 2,
+        "hdinsight-workernode-count": 4,
+        "hdinsight-headnode-0": "[concat('hn0-', take(variables('hdinsight-name'), 6))]",
+        "hdinsight-headnode-1": "[concat('hn1-', take(variables('hdinsight-name'), 6))]",
+        "hdinsight-script-hdp": "http://bostondata.blob.core.windows.net/edw-data-virtualization/copyhdpdir.sh",
+        "hdinsight-script-spark": "http://bostondata.blob.core.windows.net/edw-data-virtualization/copy-spark-notebook.sh",
+        "hdinsight-notebook-spark": "http://bostondata.blob.core.windows.net/edw-data-virtualization/Spark%20-%20Join%20DW%20with%20WASB.ipynb.tpl",
+        "storage-account-name": "[concat(variables('prefix'), 'stor', variables('unique'))]",
+        "storage-account-id": "[resourceId('Microsoft.Storage/storageAccounts', variables('storage-account-name'))]",
+        "storage-sku": "Standard_LRS",
+        "virtual-machine-name": "[take(concat(variables('prefix'), '-sqlvm'), 15)]",
+        "virtual-machine-id": "[resourceId('Microsoft.Compute/virtualMachines', variables('virtual-machine-name'))]",
+        "vm-ext-sql-name": "SqlIaasExtension",
+        "vm-ext-sql-id": "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('virtual-machine-name'), variables('vm-ext-sql-name'))]",
+        "vm-ext-dv-name": "DataVirtualizationExtension",
+        "vm-ext-dv-id": "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('virtual-machine-name'), variables('vm-ext-dv-name'))]",
+        "vm-ext-dv-basepath": "http://bostondata.blob.core.windows.net/edw-data-virtualization/",
+        "vm-ext-dv-script": "Deploy.ps1",
+        "vm-ext-dv-deploy-uri": "[uri(variables('vm-ext-dv-basepath'), variables('vm-ext-dv-script'))]",
+        "vm-ext-dv-install-uri": "http://bostondata.blob.core.windows.net/edw-data-virtualization/Install.ps1",
+        "vnet-name": "[concat(variables('virtual-machine-name'), '-vnet')]",
+        "vnet-id": "[resourceId('Microsoft.Network/virtualNetworks', variables('vnet-name'))]",
+        "vnet-address-prefix": "10.5.1.0/24",
+        "vnet-subnet-1-name": "default",
+        "vnet-subnet-1-id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnet-name'), variables('vnet-subnet-1-name'))]",
+        "vnet-subnet-1-prefix": "10.5.1.0/24",
+        "public-ip-name": "[concat(variables('virtual-machine-name'), '-ip')]",
+        "public-ip-id": "[resourceId('Microsoft.Network/publicIpAddresses', variables('public-ip-name'))]",
+        "public-ip-type": "dynamic",
+        "network-security-name": "[concat(variables('virtual-machine-name'), '-nsg')]",
+        "network-security-id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('network-security-name'))]",
+        "nic-name": "[concat(variables('virtual-machine-name'), '-nic')]",
+        "nic-id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nic-name'))]",
+				
+        "sqldw-api-version": "2014-04-01-preview",
+        "sql-server-name": "[concat('sqlserver', variables('unique'))]",
+		"sql-server-uri": "[concat(variables('sql-server-name'),'.database.windows.net')]",
+        "sqldw-name": "AdventureWorksSQLDW2012",
+        "sql-collation": "SQL_LATIN1_GENERAL_CP1_CI_AS",
+        "sql-requested-service": "DW100",
+		"sql-server-id": "[resourceId('Microsoft.Sql/servers/databases', variables('sql-server-name'), variables('sqldw-name'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "name": "[variables('storage-account-name')]",
+            "apiVersion": "[variables('storage-version')]",
+            "location": "[variables('location')]",
+            "sku": { "name": "[variables('storage-sku')]" },
+            "kind": "Storage",
+            "properties": { }
+        },
+        
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "name": "[variables('vnet-name')]",
+            "apiVersion": "[variables('network-version')]",
+            "location": "[variables('location')]",
+            "properties": {
+                "addressSpace": { "addressPrefixes": [ "[variables('vnet-address-prefix')]" ] },
+                "subnets": [
+                    {
+                        "name": "[variables('vnet-subnet-1-name')]", 
+                        "properties": { "addressPrefix": "[variables('vnet-subnet-1-prefix')]" } 
+                    }
+                ]
+            }
+        },
+        
+        {
+            "name": "[variables('public-ip-name')]",
+            "type": "Microsoft.Network/publicIpAddresses",
+            "apiVersion": "[variables('network-version')]",
+            "location": "[variables('location')]",
+            "properties": {
+                "publicIpAllocationMethod": "[variables('public-ip-type')]"
+            }
+        },
+        
+        {
+            "name": "[variables('network-security-name')]",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "[variables('network-version')]",
+            "location": "[variables('location')]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "default-allow-rdp",
+                        "properties": { "priority": 1000, "sourceAddressPrefix": "*", "protocol": "TCP", "destinationPortRange": "3389", "access": "Allow", "direction": "Inbound", "sourcePortRange": "*", "destinationAddressPrefix": "*" }
+                    }
+                ]
+            }
+        },
+        
+        {
+            "name": "[variables('nic-name')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "[variables('network-version')]",
+            "location": "[variables('location')]",
+            "dependsOn": [
+                "[variables('vnet-id')]",
+                "[variables('public-ip-id')]",
+                "[variables('network-security-id')]"
+            ],
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "subnet": { "id": "[variables('vnet-subnet-1-id')]" },
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIpAddress": { "id": "[variables('public-ip-id')]" }
+                        }
+                    }
+                ],
+                "networkSecurityGroup": {
+                    "id": "[variables('network-security-id')]"
+                }
+            }
+        },
+		
+        {
+            "type": "Microsoft.Sql/servers",
+            "name": "[variables('sql-server-name')]",
+            "location": "[variables('location')]",
+            "apiVersion": "[variables('sqldw-api-version')]",
+            "properties": {
+                "administratorLogin": "[parameters('admin-username')]",
+                "administratorLoginPassword": "[parameters('admin-password')]",
+                "version": "12.0"
+            },
+            "resources": [
+                {
+                    "name": "[variables('sqldw-name')]",
+                    "type": "databases",
+                    "location": "[variables('location')]",
+                    "tags": {
+                        "displayName": "Data Warehouse"
+                    },
+                    "apiVersion": "[variables('sqldw-api-version')]",
+                    "dependsOn": [
+                        "[concat('Microsoft.Sql/servers/', variables('sql-server-name'))]"
+                    ],
+                    "properties": {
+                        "edition": "DataWarehouse",
+                        "collation": "[variables('sql-collation')]",
+                        "requestedServiceObjectiveName": "[variables('sql-requested-service')]"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "[variables('sqldw-api-version')]",
+                    "dependsOn": [
+                        "[concat('Microsoft.Sql/servers/', variables('sql-server-name'))]"
+                    ],
+                    "location": "[variables('location')]",
+                    "name": "AllowAllWindowsAzureIps",
+                    "properties": {
+                        "endIpAddress": "0.0.0.0",
+                        "startIpAddress": "0.0.0.0"
+                    }
+                }
+            ]
+        },
+        
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "name": "[variables('virtual-machine-name')]",
+            "apiVersion": "[variables('virtual-machine-version')]",
+            "location": "[variables('location')]",
+            "dependsOn": [
+                "[variables('nic-id')]",
+                "[variables('hdinsight-id')]",
+				"[variables('sql-server-id')]"
+            ],
+            "properties": {
+                "osProfile": {
+                    "computerName": "[variables('virtual-machine-name')]",
+                    "adminUsername": "[parameters('admin-username')]",
+                    "adminPassword": "[parameters('admin-password')]",
+                    "windowsConfiguration": { "provisionVmAgent": "true" }
+                },
+                "hardwareProfile": {
+                    "vmSize": "[variables('sql-vm-size')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "MicrosoftSQLServer",
+                        "offer": "SQL2016SP1-WS2016",
+                        "sku": "Enterprise",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "[variables('virtual-machine-name')]",
+                        "createOption": "FromImage",
+                        "vhd": {
+                            "uri": "[concat(reference(variables('storage-account-id'), variables('storage-version')).primaryEndpoints['blob'], 'vhds/', variables('virtual-machine-name'), '-os-', variables('unique'), '.vhd')]"
+                        }
+                    },
+                    "dataDisks": [
+                        {
+                            "name": "[concat(variables('virtual-machine-name'), '-disk-1')]",
+                            "createOption": "Empty",
+                            "lun": 0,
+                            "diskSizeGB": "1023",
+                            "caching": "ReadOnly",
+                            "vhd": {
+                                "uri": "[concat(reference(variables('storage-account-id'), variables('storage-version')).primaryEndpoints['blob'], 'vhds/', variables('virtual-machine-name'), '-disk-1-', variables('unique'), '.vhd')]"
+                            }
+                        }
+                    ]
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        { "id": "[variables('nic-id')]" }
+                    ]
+                }
+            },
+            "resources": [
+                {
+                    "type": "extensions",
+                    "name": "[variables('vm-ext-sql-name')]",
+                    "apiVersion": "[variables('virtual-machine-version')]",
+                    "location": "[variables('location')]",
+                    "dependsOn": [
+                        "[variables('virtual-machine-id')]"
+                    ],
+                    "properties": {
+                        "type": "SqlIaaSAgent",
+                        "publisher": "Microsoft.SqlServer.Management",
+                        "typeHandlerVersion": "1.2",
+                        "autoUpgradeMinorVersion": "true",
+                        "settings": {
+                            "AutoTelemetrySettings": { "Region": "[variables('location')]" },
+                            "AutoPatchingSettings": {
+                                "PatchCategory": "WindowsMandatoryUpdates",
+                                "Enable": true,
+                                "DayOfWeek": "Sunday",
+                                "MaintenanceWindowStartingHour": "2",
+                                "MaintenanceWindowDuration": "60"
+                            },
+                            "KeyVaultCredentialSettings": {
+                                "Enable": false,
+                                "CredentialName": ""
+                            },
+                            "ServerConfigurationsManagementSettings": {
+                                "SQLConnectivityUpdateSettings": {
+                                    "ConnectivityType": "Private",
+                                    "Port": 1433
+                                },
+                                "SQLWorkloadTypeUpdateSettings": {
+                                    "SQLWorkloadType": "GENERAL"
+                                },
+                                "SQLStorageUpdateSettings": {
+                                    "DiskCount": 1,
+                                    "NumberOfColumns": 1,
+                                    "StartingDeviceID": 2,
+                                    "DiskConfigurationType": "NEW"
+                                },
+                                "AdditionalFeaturesServerConfigurations": {
+                                    "IsRServicesEnabled": "false"
+                                }
+                            }
+                        },
+                        "protectedSettings": {}
+                    }
+                },
+                {
+                    "type": "extensions",
+                    "name": "[variables('vm-ext-dv-name')]",
+                    "apiVersion": "[variables('virtual-machine-version')]",
+                    "location": "[variables('location')]",
+                    "dependsOn": [
+                        "[variables('virtual-machine-id')]",
+                        "[variables('nic-id')]"
+                    ],
+                    "properties": {
+                        "publisher": "Microsoft.Compute",
+                        "type": "CustomScriptExtension",
+                        "typeHandlerVersion": "1.8",
+                        "autoUpgradeMinorVersion": true,
+                        "settings": {							
+							"fileUris": [ "[variables('vm-ext-dv-deploy-uri')]" ],
+                            "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted -File ', variables('vm-ext-dv-script'), ' ', parameters('admin-password'), ' ', variables('storage-account-name'), ' ', listKeys(variables('storage-account-id'), variables('storage-version')).keys[0].value, ' ', variables('polybase-storage-container'), ' ', parameters('admin-username'), ' ', parameters('admin-password'), ' ', concat(variables('hdinsight-headnode-0'), '.', reference(variables('nic-id'), variables('network-version')).dnsSettings.internalDomainNameSuffix), ',', concat(variables('hdinsight-headnode-1'), '.', reference(variables('nic-id'), variables('network-version')).dnsSettings.internalDomainNameSuffix), ' ', variables('sql-server-uri'), ' ', variables('sqldw-name'))]"
+                        }
+                    }
+                }
+            ]
+        },
+
+        {
+            "type": "Microsoft.HDInsight/clusters",
+            "name": "[variables('hdinsight-name')]",
+            "apiVersion": "[variables('hdinsight-version')]",
+            "location": "[variables('location')]",
+            "dependsOn": [ 
+                "[variables('storage-account-id')]",
+                "[variables('vnet-id')]"
+            ],
+            "properties": {
+                "clusterVersion": "3.5",
+                "osType": "Linux",
+                "tier": "standard",
+                "clusterDefinition": {
+                    "kind": "spark",
+                    "configurations": {
+                        "gateway": {
+                            "restAuthCredential.isEnabled": true,
+                            "restAuthCredential.username": "[parameters('admin-username')]",
+                            "restAuthCredential.password": "[parameters('admin-password')]"
+                        }          
+                    }
+                },
+                "storageProfile": {
+                    "storageaccounts": [
+                        {
+                            "name": "[concat(variables('storage-account-name'),'.blob.core.windows.net')]",
+                            "isDefault": true,
+                            "container": "[variables('hdinsight-name')]",
+                            "key": "[listKeys(variables('storage-account-id'), variables('storage-version')).keys[0].value]"
+                        }
+                    ]
+                },
+                "computeProfile": {
+                    "roles": [
+                        {
+                            "name": "headnode",
+                            "targetInstanceCount": "[variables('hdinsight-headnode-count')]",
+                            "hardwareProfile": { "vmSize": "[variables('headnode-vm-size')]" },
+                            "osProfile": "[variables('hdinsight-os-profile')]",
+                            "virtualNetworkProfile": "[variables('hdinsight-vnet-profile')]",
+                            "scriptActions": [
+                                 {"name":"Copy HDP to DFS", "uri":"[variables('hdinsight-script-hdp')]"},
+                                 {"name":"Copy Spark Notebook to WASB", "uri":"[variables('hdinsight-script-spark')]", "parameters":"[concat(variables('sql-server-name'), ' ', parameters('admin-username'), ' ', parameters('admin-password'), ' ', variables('sqldw-name'), ' ', variables('hdinsight-notebook-spark'))]" }
+                            ]
+                        },
+                        {
+                            "name": "workernode",
+                            "targetInstanceCount": "[variables('hdinsight-workernode-count')]",
+                            "hardwareProfile": { "vmSize": "[variables('workernode-vm-size')]" },
+                            "osProfile": "[variables('hdinsight-os-profile')]",
+                            "virtualNetworkProfile": "[variables('hdinsight-vnet-profile')]"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "VirtualMachineIP": {
+            "type":"string",
+            "value":"[reference(variables('public-ip-id'), variables('network-version')).ipAddress]"
+        },
+        "VirtualMachinePortalUri": {
+            "type":"string",
+            "value":"[concat('https://portal.azure.com/#resource', resourceGroup().id, '/providers/Microsoft.Compute/virtualMachines/', variables('virtual-machine-name'), '/overview')]"
+        },
+        "JupyterNotebookUri": {
+            "type":"string",
+            "value":"[concat('https://', variables('hdinsight-name'), '.azurehdinsight.net/jupyter/tree')]"
+        },
+        "VM": {
+            "type": "object",
+            "value": "[reference(variables('virtual-machine-id'), variables('virtual-machine-version'))]"
+        },
+        "IP": {
+            "type": "object",
+            "value": "[reference(variables('public-ip-id'), variables('network-version'))]"
+        },
+        "VNET": {
+            "type": "object",
+            "value": "[reference(variables('vnet-id'), variables('network-version'))]"
+        },
+        "NIC": {
+            "type": "object",
+            "value": "[reference(variables('nic-id'), variables('network-version'))]"
+        },
+        "NSG": {
+            "type": "object",
+            "value": "[reference(variables('network-security-id'), variables('network-version'))]"
+        },
+        "HDI": {
+            "type": "object",
+            "value": "[reference(variables('hdinsight-id'), variables('hdinsight-version'))]"
+        },
+        "dnsSettings": {
+            "type": "string",
+            "value": "[reference(variables('nic-id'), variables('network-version')).dnsSettings.internalDomainNameSuffix]"
+        }
+    }
+}
